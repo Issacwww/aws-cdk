@@ -852,6 +852,73 @@ export interface ClusterProps extends ClusterOptions {
    * @default - none
    */
   readonly tags?: { [key: string]: string };
+
+  /**
+   * The computeConfig for EKS Auto Mode cluster
+   *
+   * @default - none
+   */
+  readonly computeConfig?: ComputeConfig;
+
+  /**
+   * The storageConfig for EKS Auto Mode cluster
+   *
+   * @default - none
+   */
+  readonly storageConfig?: StorageConfig;
+
+  /**
+   * Indicates the current configuration of the load balancing capability on your EKS Auto Mode cluster.
+   *
+   * @default - none
+   */
+  readonly elasticLoadBalancing?: boolean;
+}
+
+/**
+ * Indicates the current configuration of the compute capability on your EKS Auto Mode cluster.
+ */
+export interface ComputeConfig {
+  /**
+   * Indicates whether the compute configuration is enabled.
+   *
+   * @default false
+   */
+  readonly enabled?: boolean;
+
+  /**
+   * An array of node pool names.
+   *
+   * @default - No node pools
+   */
+  readonly nodePools?: string[];
+
+  /**
+   * The ARN of the IAM role for the nodes.
+   */
+  readonly nodeRoleArn: string;
+}
+
+/**
+ * Request to configure EBS Block Storage settings for your EKS Auto Mode cluster.
+ */
+export interface BlockStorageConfig {
+  /**
+   * Indicates whether block storage is enabled.
+   *
+   * @default false
+   */
+  readonly enabled: boolean;
+}
+
+/**
+ * Request to update the configuration of the storage capability of your EKS Auto Mode cluster.
+ */
+export interface StorageConfig {
+  /**
+   * Configuration for block storage for auto mode.
+   */
+  readonly blockStorage: BlockStorageConfig;
 }
 
 /**
@@ -1689,9 +1756,16 @@ export class Cluster extends ClusterBase {
           resources: ['secrets'],
         }],
       } : {}),
+      computeConfig: props.computeConfig,
+      storageConfig: props.storageConfig,
       kubernetesNetworkConfig: {
         ipFamily: this.ipFamily,
         serviceIpv4Cidr: props.serviceIpv4Cidr,
+        ...(props.elasticLoadBalancing ? {
+          elasticLoadBalancing: {
+            enabled: props.elasticLoadBalancing,
+          },
+        } : {}),
       },
       endpointPrivateAccess: this.endpointAccess._config.privateAccess,
       endpointPublicAccess: this.endpointAccess._config.publicAccess,
