@@ -852,6 +852,64 @@ export interface ClusterProps extends ClusterOptions {
    * @default - none
    */
   readonly tags?: { [key: string]: string };
+
+  /**
+   * The computeConfig for EKS Auto Mode cluster
+   *
+   * @default - none
+   */
+  readonly computeConfig?: ComputeConfig;
+
+  /**
+   * Indicates the blockStorageConfig for EKS Auto Mode cluster
+   *
+   * @default - none
+   */
+  readonly blockStorageConfig?: BlockStorageConfig;
+
+  /**
+   * Indicates the current configuration of the load balancing capability on your EKS Auto Mode cluster.
+   *
+   * @default - none
+   */
+  readonly elasticLoadBalancing?: boolean;
+}
+
+/**
+ * Indicates the current configuration of the compute capability on your EKS Auto Mode cluster.
+ */
+export interface ComputeConfig {
+  /**
+   * Request to enable or disable the compute capability on your EKS Auto Mode cluster. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account.
+   *
+   * @default false
+   */
+  readonly enabled?: boolean;
+
+  /**
+   * Configuration for node pools that defines the compute resources for your EKS Auto Mode cluster.
+   *
+   * @default - No node pools
+   */
+  readonly nodePools?: string[];
+
+  /**
+   * The ARN of the IAM Role EKS will assign to EC2 Managed Instances in your EKS Auto Mode cluster. This value cannot be changed after the compute capability of EKS Auto Mode is enabled
+   * @default - none
+   */
+  readonly nodeRoleArn?: string;
+}
+
+/**
+ * Indicates the current configuration of the block storage capability on your EKS Auto Mode cluster
+ */
+export interface BlockStorageConfig {
+  /**
+   * Indicates if the block storage capability is enabled on your EKS Auto Mode cluster. If the block storage capability is enabled, EKS Auto Mode will create and delete EBS volumes in your AWS account.
+   *
+   * @default false
+   */
+  readonly enabled?: boolean;
 }
 
 /**
@@ -1666,6 +1724,15 @@ export class Cluster extends ClusterBase {
       throw new Error('Cannot specify serviceIpv4Cidr with ipFamily equal to IpFamily.IP_V6');
     }
 
+    if (props.computeConfig?.enabled) {
+      if (!props.computeConfig.nodePools || props.computeConfig.nodePools.length == 0) {
+        throw new Error('Nodepools is required when computeConfig is enabled');
+      }
+      if (!props.computeConfig.nodeRoleArn) {
+        throw new Error('NodeRoleArn is required when computeConfig is enabled');
+      }
+    }
+
     this.authenticationMode = props.authenticationMode;
 
     const resource = this._clusterResource = new ClusterResource(this, 'Resource', {
@@ -1692,6 +1759,11 @@ export class Cluster extends ClusterBase {
       kubernetesNetworkConfig: {
         ipFamily: this.ipFamily,
         serviceIpv4Cidr: props.serviceIpv4Cidr,
+        ...(props.elasticLoadBalancing ? {
+          elasticLoadBalancing: {
+            enabled: true,
+          },
+        } : {}),
       },
       endpointPrivateAccess: this.endpointAccess._config.privateAccess,
       endpointPublicAccess: this.endpointAccess._config.publicAccess,
@@ -1703,6 +1775,20 @@ export class Cluster extends ClusterBase {
       onEventLayer: this.onEventLayer,
       tags: props.tags,
       logging: this.logging,
+      ...(props.computeConfig?.enabled ? {
+        computeConfig: {
+          enabled: true,
+          nodePools: props.computeConfig.nodePools,
+          nodeRoleArn: props.computeConfig.nodeRoleArn,
+        },
+      } : {}),
+      ...(props.blockStorageConfig?.enabled ? {
+        storageConfig: {
+          blockStorage: {
+            enabled: true,
+          },
+        },
+      } : {}),
     });
 
     if (this.endpointAccess._config.privateAccess && privateSubnets.length !== 0) {
